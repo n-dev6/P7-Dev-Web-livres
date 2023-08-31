@@ -1,7 +1,9 @@
 const express = require('express');
 const app = express();
-const stuffRoutes = require('./routes/stuff')
-const userRoutes = require('./routes/user')
+const bodyParser = require('body-parser'); // Importez bodyParser
+const bookRoutes = require('./routes/book');
+const userRoutes = require('./routes/user');
+const path = require('path');
 const mongoose = require('mongoose');
   
 app.use((req, res, next) => {
@@ -11,8 +13,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// Ajout du middleware express.json() pour analyser le corps des requêtes POST en JSON
-app.use(express.json());
+// Utilisez bodyParser.json() ici, avant de définir les routes
+app.use(bodyParser.json());
 
 mongoose.connect('mongodb+srv://norybrakhlia:j1deS0ej8NeFA1YF@p7dev.a3szkt5.mongodb.net/?retryWrites=true&w=majority',
   { useNewUrlParser: true,
@@ -20,8 +22,8 @@ mongoose.connect('mongodb+srv://norybrakhlia:j1deS0ej8NeFA1YF@p7dev.a3szkt5.mong
   .then(() => console.log('Connexion à MongoDB réussie !'))
   .catch(() => console.log('Connexion à MongoDB échouée !'));
   
-
-app.use('/api/books', stuffRoutes);
+app.use('/api/books', bookRoutes);
 app.use('/api/auth', userRoutes);
+app.use('/images', express.static(path.join(__dirname, 'images')));
 
 module.exports = app;
