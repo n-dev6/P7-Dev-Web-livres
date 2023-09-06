@@ -1,5 +1,5 @@
 
-const User = require('../models/User');
+const User = require('../models/user');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
@@ -7,7 +7,8 @@ const jwt = require('jsonwebtoken');
 exports.signup = (req, res, next) => {
     const email = req.body.email;
     const password = req.body.password;
-
+    //verifier format de l'adresse mail.
+    
     // Vérifier si l'email et le mot de passe sont présents
     if (!email || !password) {
         return res.status(400).json({ message: "Veuillez fournir une adresse e-mail et un mot de passe." });
