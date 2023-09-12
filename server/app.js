@@ -20,7 +20,7 @@ mongoose.connect('mongodb+srv://norybrakhlia:j1deS0ej8NeFA1YF@p7dev.a3szkt5.mong
   { useNewUrlParser: true,
     useUnifiedTopology: true })
   .then(() => console.log('Connexion à MongoDB réussie !'))
-  .catch(() => console.log('Connexion à MongoDB échouée !'));
+  .catch((error) => console.error(`Connexion à MongoDB échouée : ${error}`));
   
 app.use('/api/books', bookRoutes);
 app.use('/api/auth', userRoutes);

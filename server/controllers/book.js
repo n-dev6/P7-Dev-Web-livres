@@ -2,6 +2,8 @@
 const Book = require("../models/Book");
 const fs = require('fs'); // Module pour gérer les fichiers sur le système de fichiers
 const sharp = require('sharp'); // Module pour manipuler les images
+const { optimizeImage } = require("../helpers/imageHelper");
+
 
 // Route pour créer un nouveau livre
 exports.createBook = (req, res, next) => {
@@ -14,18 +16,43 @@ exports.createBook = (req, res, next) => {
     delete bookObject._id;
     delete bookObject._userId;
 
+    const outputFilename = req.file.filename + ".webp";
+    const outputPath = `images/${outputFilename}`;
     // Créez une nouvelle instance de livre avec les données de la demande
     const book = new Book({
         ...bookObject,
         userId: req.auth.userId, // Attribuez l'ID de l'utilisateur actuel au livre
-        imageUrl: `${req.protocol}://${req.get("host")}/images/${req.file.filename}`, // URL de l'image du livre
+        imageUrl: `${req.protocol}://${req.get("host")}/images/${outputFilename}`, // URL de l'image du livre
     });
 
-    // Enregistrez le livre dans la base de données
-    book
-        .save()
-        .then(() => res.status(201).json({ message: "Livre enregistré !" }))
-        .catch((error) => res.status(404).json({ error }));
+
+    // Construction du chemin d'accès de l'image optimisée
+
+
+    // Optimisation de l'image
+    const inputPath = req.file.path;
+    optimizeImage(inputPath, outputPath)
+        .then(() => {
+            // Suppression de l'image originale après sa conversion
+            fs.unlink(inputPath, (err) => {
+                if (err) {
+                    console.error(
+                        "Erreur lors de la suppression de l'image originale:",
+                        err
+                    );
+                    return res
+                        .status(500)
+                        .json({ error: "Failed to delete the original image" });
+                } // Sauvegarde du livre dans la base de données
+                book
+                    .save()
+                    .then(() =>
+                        res.status(201).json({ message: "Livre enregistré !" })
+                    )
+                    .catch((error) => res.status(400).json({ error }));
+            });
+        })
+        .catch((error) => res.status(500).json({ error: "Database error" }));
 };
 
 // Route pour obtenir un livre par son ID
@@ -109,31 +136,62 @@ exports.deleteBook = (req, res, next) => {
 };
 // Route pour mettre à jour un livre par son ID
 exports.updateBook = (req, res, next) => {
-    // Créez un objet 'bookObject' à partir des données reçues dans la requête
-    // Si une image est téléchargée, ajoutez l'URL de l'image à l'objet
-    const bookObject = req.file ? {
-      ...JSON.parse(req.body.book), // Si une image est téléchargée, parsez les données du livre depuis 'req.body.book'
-      imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename}` // Ajoutez l'URL de l'image
-    } : { ...req.body}; // Sinon, utilisez les données directement depuis 'req.body'
-
-    // Supprimez la propriété '_userId' de l'objet 'bookObject'
-    delete bookObject._userId;
-
     // Utilisation de 'findOne()' pour rechercher le livre ayant le même '_id' que le paramètre de la requête
-    Book.findOne({_id: req.params.id})
-      .then((book) => {
-        // Vérifiez si l'utilisateur actuel est l'auteur du livre en comparant 'userId' du livre avec 'req.auth.userId'
-        if(book.userId != req.auth.userId) {
-          // Si l'utilisateur n'est pas l'auteur, renvoyez une réponse d'erreur 401 (Non autorisé)
-          res.status(401).json({message: "Vous n'avez pas l'autorisation requise."})
-        } else {
-          // Si l'utilisateur est l'auteur du livre, utilisez 'updateOne()' pour mettre à jour le livre
-          Book.updateOne({_id: req.params.id}, { ...bookObject, _id: req.params.id})
-            .then(() => res.status(200).json({ message: 'Votre livre a bien été modifié !'}))
-            .catch(error => res.status(401).json({error})); // Gérez les erreurs liées à la mise à jour
-        }
-      })
-      .catch(error => res.status(400).json({error})); // Gérez les erreurs liées à la recherche du livre
+    Book.findOne({ _id: req.params.id })
+        .then((book) => {
+            // Vérifiez si l'utilisateur actuel est l'auteur du livre en comparant 'userId' du livre avec 'req.auth.userId'
+            if (book.userId != req.auth.userId) {
+                // Si l'utilisateur n'est pas l'auteur, renvoyez une réponse d'erreur 401 (Non autorisé)
+                res.status(401).json({ message: "Vous n'avez pas l'autorisation requise." })
+            } else {
+                var bookObject = { ...req.body };
+                //TODO : Enregistrer l'ancienne IMG
+                const oldBookImageUrl = book.imageUrl;
+                // Si une image a été téléchargée
+                if (req.file) {
+                    const outputFilename = req.file.filename + ".webp";
+                    const outputPath = `images/${outputFilename}`;
+
+                    optimizeImage(req.file.path, outputPath)
+                        .then(() => {
+                            // Suppression de l'image originale après sa conversion
+                            fs.unlink(req.file.path, (err) => {
+                                if (err) {
+                                    console.error(
+                                        "Erreur lors de la suppression de l'image originale:",
+                                        err
+                                    );
+                                    return res
+                                        .status(500)
+                                        .json({ error: "Failed to delete the original image" });
+                                } // Sauvegarde du livre dans la base de données
+                            });
+
+                            bookObject = {
+                                ...JSON.parse(req.body.book), // Si une image est téléchargée, parsez les données du livre depuis 'req.body.book'
+                                imageUrl: `${req.protocol}://${req.get('host')}/images/${outputFilename}` // Ajoutez l'URL de l'image
+                            };
+
+                            Book.updateOne({ _id: req.params.id }, { ...bookObject, _id: req.params.id })
+                            .then(() => res.status(200).json({ message: 'Votre livre a bien été modifié !' }))
+                            .catch(error => res.status(401).json({ error })); // Gérez les erreurs liées à la mise à jour
+
+                            // TODO : Supprimer l'ancienne (oldBookImageUrl)
+                            
+                        });
+                }else{
+                    Book.updateOne({ _id: req.params.id }, { ...bookObject, _id: req.params.id })
+                    .then(() => res.status(200).json({ message: 'Votre livre a bien été modifié !' }))
+                    .catch(error => res.status(401).json({ error })); // Gérez les erreurs liées à la mise à jour
+                }
+            }
+        })
+        .catch(error => res.status(400).json({ error })); // Gérez les erreurs liées à la recherche du livre
+
+
+
+
+
 };
 
 
