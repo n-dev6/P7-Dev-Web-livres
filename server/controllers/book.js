@@ -134,7 +134,6 @@ exports.deleteBook = (req, res, next) => {
             res.status(500).json({ error });
         });
 };
-// Route pour mettre à jour un livre par son ID
 exports.updateBook = (req, res, next) => {
     // Utilisation de 'findOne()' pour rechercher le livre ayant le même '_id' que le paramètre de la requête
     Book.findOne({ _id: req.params.id })
@@ -176,8 +175,7 @@ exports.updateBook = (req, res, next) => {
                             .then(() => res.status(200).json({ message: 'Votre livre a bien été modifié !' }))
                             .catch(error => res.status(401).json({ error })); // Gérez les erreurs liées à la mise à jour
 
-                            // TODO : Supprimer l'ancienne (oldBookImageUrl)
-                            
+                            // TODO : Supprimer l'ancienne (oldBookImageUrl)                           
                         });
                 }else{
                     Book.updateOne({ _id: req.params.id }, { ...bookObject, _id: req.params.id })
@@ -187,10 +185,6 @@ exports.updateBook = (req, res, next) => {
             }
         })
         .catch(error => res.status(400).json({ error })); // Gérez les erreurs liées à la recherche du livre
-
-
-
-
 
 };
 
