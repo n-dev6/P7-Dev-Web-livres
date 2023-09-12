@@ -55,25 +55,28 @@ exports.createBook = (req, res, next) => {
         .catch((error) => res.status(500).json({ error: "Database error" }));
 };
 
-// Route pour obtenir un livre par son ID
 exports.getOneBook = (req, res, next) => {
     Book.findOne({
         _id: req.params.id
     })
-        .then(
-            (book) => {
-                res.status(200).json(book);
-            }
-        )
-        .catch(
-            (error) => {
-                res.status(404).json({
-                    error: error
-                });
-            }
-        );
-};
+        .then((book) => {
+            // Vérifiez si le livre a une note moyenne
+            if (book.averageRating !== undefined) {
+                // Formatez la note moyenne avec 2 décimales
+                const formattedAverageRating = book.averageRating.toFixed(2);
 
+                // Remplacez la valeur de la note moyenne par la version formatée
+                book.averageRating = formattedAverageRating;
+            }
+
+            res.status(200).json(book);
+        })
+        .catch((error) => {
+            res.status(404).json({
+                error: error
+            });
+        });
+};
 // Route pour définir la note d'un livre par son ID
 exports.setBookRating = async (req, res, next) => {
     const { userId, rating } = req.body;
@@ -108,11 +111,12 @@ exports.setBookRating = async (req, res, next) => {
         // Sauvegardez les modifications
         await book.save();
 
-        res.status(200).json({ message: 'Note définie avec succès.', book });
+        res.status(200).json(book);
     } catch (error) {
         res.status(500).json({ error: 'Erreur lors de la définition de la note.' });
     }
 };
+
 
 
 // Route pour supprimer un livre par son ID
