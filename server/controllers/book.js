@@ -135,16 +135,13 @@ exports.deleteBook = (req, res, next) => {
         });
 };
 exports.updateBook = (req, res, next) => {
-    // Utilisation de 'findOne()' pour rechercher le livre ayant le même '_id' que le paramètre de la requête
     Book.findOne({ _id: req.params.id })
         .then((book) => {
-            // Vérifiez si l'utilisateur actuel est l'auteur du livre en comparant 'userId' du livre avec 'req.auth.userId'
             if (book.userId != req.auth.userId) {
-                // Si l'utilisateur n'est pas l'auteur, renvoyez une réponse d'erreur 401 (Non autorisé)
                 res.status(401).json({ message: "Vous n'avez pas l'autorisation requise." })
             } else {
                 var bookObject = { ...req.body };
-                //TODO : Enregistrer l'ancienne IMG
+                // Enregistrez l'ancienne URL de l'image
                 const oldBookImageUrl = book.imageUrl;
                 // Si une image a été téléchargée
                 if (req.file) {
@@ -163,28 +160,40 @@ exports.updateBook = (req, res, next) => {
                                     return res
                                         .status(500)
                                         .json({ error: "Failed to delete the original image" });
-                                } // Sauvegarde du livre dans la base de données
+                                }
+
+                                // Supprimez l'ancienne image si elle existe
+                                if (oldBookImageUrl) {
+                                    const oldImagePath = `images/${oldBookImageUrl.split('/images/')[1]}`;
+                                    fs.unlink(oldImagePath, (err) => {
+                                        if (err) {
+                                            console.error(
+                                                "Erreur lors de la suppression de l'ancienne image:",
+                                                err
+                                            );
+                                        }
+                                    });
+                                }
+
+                                bookObject = {
+                                    ...JSON.parse(req.body.book),
+                                    imageUrl: `${req.protocol}://${req.get('host')}/images/${outputFilename}`
+                                };
+
+                                Book.updateOne({ _id: req.params.id }, { ...bookObject, _id: req.params.id })
+                                    .then(() => res.status(200).json({ message: 'Votre livre a bien été modifié !' }))
+                                    .catch(error => res.status(401).json({ error }));
                             });
-
-                            bookObject = {
-                                ...JSON.parse(req.body.book), // Si une image est téléchargée, parsez les données du livre depuis 'req.body.book'
-                                imageUrl: `${req.protocol}://${req.get('host')}/images/${outputFilename}` // Ajoutez l'URL de l'image
-                            };
-
-                            Book.updateOne({ _id: req.params.id }, { ...bookObject, _id: req.params.id })
-                            .then(() => res.status(200).json({ message: 'Votre livre a bien été modifié !' }))
-                            .catch(error => res.status(401).json({ error })); // Gérez les erreurs liées à la mise à jour
-
-                            // TODO : Supprimer l'ancienne (oldBookImageUrl)                           
                         });
-                }else{
+                } else {
+                    // Si aucune nouvelle image n'est téléchargée, mettez simplement à jour le livre
                     Book.updateOne({ _id: req.params.id }, { ...bookObject, _id: req.params.id })
-                    .then(() => res.status(200).json({ message: 'Votre livre a bien été modifié !' }))
-                    .catch(error => res.status(401).json({ error })); // Gérez les erreurs liées à la mise à jour
+                        .then(() => res.status(200).json({ message: 'Votre livre a bien été modifié !' }))
+                        .catch(error => res.status(401).json({ error }));
                 }
             }
         })
-        .catch(error => res.status(400).json({ error })); // Gérez les erreurs liées à la recherche du livre
+        .catch(error => res.status(400).json({ error }));
 
 };
 
